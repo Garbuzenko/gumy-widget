@@ -1,0 +1,19 @@
+{
+  "name": "gumy-widget",
+  "version": "1.0.0",
+  "description": "Embeddable character-chat widget for gumy.ai — one script tag drops a floating chat launcher (with full-screen expand) onto any website.",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "embed.js"
+  ],
+  "main": "embed.js",
+  "scripts": {
+    "test": "node --test tests/",
+    "publish:gumy-ai": "cp embed.js ../gumy-ai/public/embed.js && echo 'copied embed.js -> gumy-ai/public/embed.js (deploy gumy-ai to publish)'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Garbuzenko/gumy-widget"
+  }
+}

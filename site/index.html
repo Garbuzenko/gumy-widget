@@ -28,7 +28,20 @@
         line-height: 1.55;
         -webkit-font-smoothing: antialiased;
       }
-      main { max-width: 720px; margin: 0 auto; padding: 96px 24px 220px; }
+      main { max-width: 1040px; margin: 0 auto; padding: 72px 24px 180px; }
+      .hero { display: grid; gap: 48px; grid-template-columns: 1fr; align-items: center; }
+      @media (min-width: 900px) { .hero { grid-template-columns: 1.05fr 0.95fr; gap: 40px; } }
+      .demo { justify-self: center; width: 100%; max-width: 400px; }
+      .device {
+        position: relative; border: 1px solid var(--line); border-radius: 24px; overflow: hidden;
+        background: var(--panel); box-shadow: 0 30px 80px -30px #000, 0 0 0 1px #ffffff08 inset;
+        height: 620px; max-height: 78vh;
+      }
+      .device iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--panel); }
+      .device-cap {
+        text-align: center; color: var(--muted); font-size: 13px; margin-top: 12px;
+      }
+      .device-cap b { color: var(--fg); }
       .badge {
         display: inline-block; font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
         color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
@@ -69,18 +82,34 @@
   </head>
   <body>
     <main>
-      <span class="badge">gumy-widget · live</span>
-      <h1>One script tag.<br />A character on every page.</h1>
-      <p class="lead">
-        <b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and
-        talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that sits over your
-        page — expandable to full screen, isolated in a Shadow DOM so it never clashes with your CSS.
-      </p>
-      <p class="sub">No build step, no dependencies, no CORS setup. This very page runs it.</p>
+      <div class="hero">
+        <div>
+          <span class="badge">gumy-widget · live</span>
+          <h1>One script tag.<br />A character on every page.</h1>
+          <p class="lead">
+            <b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and
+            talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that sits over your
+            page — expandable to full screen, isolated in a Shadow DOM so it never clashes with your CSS.
+          </p>
+          <p class="sub">
+            No build step, no dependencies, no CORS setup. The character on the right is
+            <b>live right now</b> — say hi. The same widget also floats in the bottom-right corner.
+          </p>
+        </div>
 
-      <p class="hint">
-        <span class="arrow">↘</span> The launcher is in the bottom-right corner right now — <b>click it and start chatting.</b>
-      </p>
+        <div class="demo">
+          <div class="device">
+            <!-- The live character, embedded straight into this page. -->
+            <iframe
+              id="gumy-inline"
+              title="Chat with a gumy character"
+              src="https://gumy.ai/en/embed/chat?c=taylor-swift&theme=dark"
+              allow="microphone; clipboard-write"
+              loading="eager"></iframe>
+          </div>
+          <p class="device-cap">Live embed of <b>gumy.ai</b> · character <b>taylor-swift</b></p>
+        </div>
+      </div>
 
       <h2>Integration</h2>
       <pre><code><span class="tok-tag">&lt;script</span> <span class="tok-attr">src</span>=<span class="tok-str">"https://gumy.ai/embed.js"</span>
@@ -107,12 +136,22 @@
     <!-- Query overrides (?character= / ?theme= / ?lang=) let you try any character live. -->
     <script>
       var q = new URLSearchParams(location.search);
+      var character = q.get("character") || "taylor-swift";
+      var lang = q.get("lang") || "en";
+      var theme = q.get("theme") || "dark";
+      var origin = q.get("origin") || "https://gumy.ai";
+
+      // Point the inline example iframe at the same character/lang/theme.
+      document.getElementById("gumy-inline").src =
+        origin + "/" + lang + "/embed/chat?c=" + encodeURIComponent(character) + "&theme=" + theme;
+
+      // Floating launcher (the actual product) — same config.
       window.GumyChatConfig = {
-        character: q.get("character") || "taylor-swift",
-        lang: q.get("lang") || "en",
-        theme: q.get("theme") || "dark",
+        character: character,
+        lang: lang,
+        theme: theme,
         position: q.get("position") || "right",
-        origin: q.get("origin") || "https://gumy.ai",
+        origin: origin,
       };
     </script>
     <script src="https://gumy.ai/embed.js" async></script>

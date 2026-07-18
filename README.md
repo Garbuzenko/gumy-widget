@@ -13,9 +13,10 @@ gumy character in a panel that sits **over your page**; hit the expand button to
         async></script>
 ```
 
-That's the whole integration. No build step, no dependencies, no CORS setup — the widget is
-one vanilla-JS file that isolates itself inside a Shadow DOM (it can't clash with your CSS)
-and hosts the real conversation in an `<iframe>` onto gumy.ai's chat.
+That's the whole integration. No build step, no dependencies, no iframe — the widget is one
+vanilla-JS file that isolates itself inside a Shadow DOM (it can't clash with your CSS) and
+renders the chat **natively**: its own message bubbles and composer, streaming the character's
+reply straight from gumy.ai over HTTPS.
 
 ## Configuration
 
@@ -27,9 +28,10 @@ Set on the `<script>` tag as `data-*` attributes:
 | `data-lang`      | `en` \| `ru`          | `en`             | UI + conversation language                |
 | `data-theme`     | `dark` \| `light`     | `dark`           | panel theme                               |
 | `data-position`  | `right` \| `left`     | `right`          | corner the launcher sits in               |
-| `data-title`     | short string          | `Chat`           | label in the panel header                 |
+| `data-title`     | short string          | character's name | label in the panel header                 |
 | `data-auto-open` | `true` \| `false`     | `false`          | open the panel on page load               |
-| `data-origin`    | URL                   | `https://gumy.ai`| chat app origin (for local/staging)       |
+| `data-origin`    | URL                   | `https://gumy.ai`| embed-API origin (for local/staging)      |
+| `data-mount`     | CSS selector          | — (floating)     | render the chat INLINE inside that element instead of as a floating launcher |
 
 Find a character's slug on its gumy.ai page: `gumy.ai/en/c/<slug>`.
 
@@ -46,20 +48,25 @@ GumyChat.setCharacter("elon-musk"); // switch who you're talking to
 
 ## How it works
 
-`embed.js` mounts a launcher + panel in a Shadow-DOM host attached to `document.body`, then
-points the panel's `<iframe>` at `https://gumy.ai/{lang}/embed/chat?c=<slug>&theme=<theme>` —
-a **chrome-less** version of the gumy.ai chat (no site nav, no footer). The conversation runs
-on gumy.ai (anonymous, no login required — subject to gumy.ai's per-visitor daily limit), so
-this repo owns only the **overlay UX**, never the chat backend or the character data.
+`embed.js` mounts a launcher + a native chat panel in a Shadow-DOM host, then talks to gumy.ai's
+public **embed API** over HTTPS (CORS-open, so it works on any origin):
 
-The panel header carries the two controls the overlay adds on top of the chat: **expand /
-shrink** (full screen ↔ corner card) and **close**. Everything else is the chat itself.
+- on open it `GET`s `…/api/embed/character?c=<slug>&lang=<lang>` to paint the header (name, avatar,
+  accent, bio);
+- on each message it `POST`s `…/api/embed/chat` `{ c, messages, lang, theme }` and streams the
+  reply back as NDJSON, filling the assistant bubble live.
+
+The character's persona is resolved and assembled **server-side** on gumy.ai from the slug — it
+never enters the browser. The conversation is anonymous (no login — subject to gumy.ai's per-IP
+daily limit), so this repo owns only the **widget UX**, never the chat backend or the character
+data. The floating panel header carries two controls: **expand / shrink** (full screen ↔ corner
+card) and **close**.
 
 ## Where it's served
 
 `gumy-widget` is the **source of truth** for `embed.js`. The file is served to the public at
-`https://gumy.ai/embed.js` — gumy.ai is the CDN origin (same origin as the chat the iframe
-loads, which is why there's no CORS to configure). To publish a change:
+`https://gumy.ai/embed.js` — gumy.ai is the origin that also hosts the `/api/embed/*` endpoints.
+To publish a change:
 
 ```bash
 npm test                 # keep the loader green
@@ -70,9 +77,10 @@ npm run publish:gumy-ai  # cp embed.js -> ../gumy-ai/public/embed.js
 ## Develop
 
 ```bash
-npm test                       # node --test tests/ — the loader's pure helpers
+npm test                       # node --test — the loader's pure helpers
 open demo/index.html           # local demo (uses ?origin / ?character overrides)
 ```
 
 `demo/index.html` loads the local `embed.js` so you can eyeball the launcher/panel/full-screen
-behaviour against the live gumy.ai chat before publishing.
+behaviour against the live gumy.ai embed API before publishing. Point `?origin=` at a local
+gumy.ai dev server to test against unshipped `/api/embed/*` changes.

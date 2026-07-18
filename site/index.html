@@ -37,7 +37,6 @@
         background: var(--panel); box-shadow: 0 30px 80px -30px #000, 0 0 0 1px #ffffff08 inset;
         height: 620px; max-height: 78vh;
       }
-      .device iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--panel); }
       .device-cap {
         text-align: center; color: var(--muted); font-size: 13px; margin-top: 12px;
       }
@@ -92,22 +91,17 @@
             page — expandable to full screen, isolated in a Shadow DOM so it never clashes with your CSS.
           </p>
           <p class="sub">
-            No build step, no dependencies, no CORS setup. The character on the right is
-            <b>live right now</b> — say hi. The same widget also floats in the bottom-right corner.
+            No build step, no dependencies, no iframe. The widget on the right is the <b>real
+            thing, live right now</b> — its own bubbles and composer, streaming straight from
+            gumy.ai. Say hi.
           </p>
         </div>
 
         <div class="demo">
-          <div class="device">
-            <!-- The live character, embedded straight into this page. -->
-            <iframe
-              id="gumy-inline"
-              title="Chat with a gumy character"
-              src="https://gumy.ai/en/embed/chat?c=taylor-swift&theme=dark"
-              allow="microphone; clipboard-write"
-              loading="eager"></iframe>
-          </div>
-          <p class="device-cap">Live embed of <b>gumy.ai</b> · character <b>taylor-swift</b></p>
+          <!-- The REAL widget, mounted inline (data-mount) — native message bubbles + composer in a
+               Shadow DOM, streaming from gumy.ai's /api/embed/chat. No iframe, no embedded site. -->
+          <div class="device" id="gumy-demo"></div>
+          <p class="device-cap">The native widget — <b>live</b>, streaming from <b>gumy.ai</b></p>
         </div>
       </div>
 
@@ -132,26 +126,17 @@
       </footer>
     </main>
 
-    <!-- The real, public integration: load embed.js from its canonical origin, gumy.ai. -->
-    <!-- Query overrides (?character= / ?theme= / ?lang=) let you try any character live. -->
+    <!-- The real, public integration: load embed.js from its canonical origin, gumy.ai, and mount
+         it INLINE inside the device box as a live, native demo (data-mount). Query overrides
+         (?character= / ?theme= / ?lang=) let you try any character live. -->
     <script>
       var q = new URLSearchParams(location.search);
-      var character = q.get("character") || "taylor-swift";
-      var lang = q.get("lang") || "en";
-      var theme = q.get("theme") || "dark";
-      var origin = q.get("origin") || "https://gumy.ai";
-
-      // Point the inline example iframe at the same character/lang/theme.
-      document.getElementById("gumy-inline").src =
-        origin + "/" + lang + "/embed/chat?c=" + encodeURIComponent(character) + "&theme=" + theme;
-
-      // Floating launcher (the actual product) — same config.
       window.GumyChatConfig = {
-        character: character,
-        lang: lang,
-        theme: theme,
-        position: q.get("position") || "right",
-        origin: origin,
+        character: q.get("character") || "taylor-swift",
+        lang: q.get("lang") || "en",
+        theme: q.get("theme") || "dark",
+        origin: q.get("origin") || "https://gumy.ai",
+        mount: "#gumy-demo",
       };
     </script>
     <script src="https://gumy.ai/embed.js" async></script>

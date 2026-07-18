@@ -1,11 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 
-// embed.js is a browser IIFE that also exports its pure helpers via module.exports when
-// required under Node (it stops before touching `document`). Load it as CommonJS.
-const require = createRequire(import.meta.url);
-const { normalizeConfig, buildIframeSrc, VERSION } = require("../embed.js");
+// embed.js is a browser IIFE that also assigns its pure helpers to `module.exports` when a CJS
+// `module` is present (it stops before touching `document`). This package is `type: module`, so a
+// bare `require()` would load embed.js as ESM — where there is no `module` and the export is
+// skipped. Evaluate it in a real CommonJS sandbox instead: a `module`/`exports` pair the file can
+// write to, with `globalThis` (no `document`) as the runtime global so the IIFE returns early.
+function loadEmbed() {
+  const src = readFileSync(new URL("../embed.js", import.meta.url), "utf8");
+  const mod = { exports: {} };
+  new Function("module", "exports", src)(mod, mod.exports);
+  return mod.exports;
+}
+const { normalizeConfig, buildCharUrl, buildChatUrl, VERSION } = loadEmbed();
 
 test("normalizeConfig fills defaults", () => {
   const c = normalizeConfig({ character: "taylor-swift" });
@@ -14,8 +22,9 @@ test("normalizeConfig fills defaults", () => {
   assert.equal(c.theme, "dark");
   assert.equal(c.position, "right");
   assert.equal(c.origin, "https://gumy.ai");
-  assert.equal(c.title, "Chat");
+  assert.equal(c.title, ""); // empty → runtime falls back to the character's own name
   assert.equal(c.autoOpen, false);
+  assert.equal(c.mount, "");
 });
 
 test("normalizeConfig validates enums, falling back on garbage", () => {
@@ -37,25 +46,35 @@ test("normalizeConfig strips trailing slash from origin", () => {
   assert.equal(normalizeConfig({ character: "x", origin: "https://gumy.ai/" }).origin, "https://gumy.ai");
 });
 
+test("normalizeConfig carries a mount selector for inline (showcase) mode", () => {
+  assert.equal(normalizeConfig({ character: "x", mount: "#demo" }).mount, "#demo");
+});
+
 test("autoOpen accepts the string 'true' (data-* attributes are always strings)", () => {
   assert.equal(normalizeConfig({ character: "x", autoOpen: "true" }).autoOpen, true);
   assert.equal(normalizeConfig({ character: "x", autoOpen: "false" }).autoOpen, false);
   assert.equal(normalizeConfig({ character: "x" }).autoOpen, false);
 });
 
-test("buildIframeSrc targets the chrome-less chat surface with lang + theme + slug", () => {
-  const c = normalizeConfig({ character: "taylor-swift", lang: "ru", theme: "light" });
-  assert.equal(buildIframeSrc(c), "https://gumy.ai/ru/embed/chat?c=taylor-swift&theme=light");
+test("buildCharUrl targets the public hero read with slug + lang", () => {
+  const c = normalizeConfig({ character: "taylor-swift", lang: "ru" });
+  assert.equal(buildCharUrl(c), "https://gumy.ai/api/embed/character?c=taylor-swift&lang=ru");
 });
 
-test("buildIframeSrc url-encodes the slug", () => {
+test("buildCharUrl url-encodes the slug", () => {
   const c = normalizeConfig({ character: "a b/c" });
-  assert.equal(buildIframeSrc(c), "https://gumy.ai/en/embed/chat?c=a%20b%2Fc&theme=dark");
+  assert.equal(buildCharUrl(c), "https://gumy.ai/api/embed/character?c=a%20b%2Fc&lang=en");
 });
 
-test("buildIframeSrc respects a custom origin", () => {
+test("buildChatUrl targets the streaming chat endpoint (slug rides the POST body, not the URL)", () => {
+  const c = normalizeConfig({ character: "taylor-swift" });
+  assert.equal(buildChatUrl(c), "https://gumy.ai/api/embed/chat");
+});
+
+test("both URLs respect a custom origin", () => {
   const c = normalizeConfig({ character: "x", origin: "http://localhost:3000" });
-  assert.equal(buildIframeSrc(c), "http://localhost:3000/en/embed/chat?c=x&theme=dark");
+  assert.equal(buildCharUrl(c), "http://localhost:3000/api/embed/character?c=x&lang=en");
+  assert.equal(buildChatUrl(c), "http://localhost:3000/api/embed/chat");
 });
 
 test("VERSION is exported", () => {

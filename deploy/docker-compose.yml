@@ -1,0 +1,28 @@
+services:
+  app:
+    image: nginx:alpine
+    container_name: ${PROJECT_NAME}        # == PROJECT_NAME == widget-gumy-ai
+    restart: unless-stopped
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    networks:
+      web:
+        # Dot-free alias is the Caddy upstream (widget-gumy-ai:80).
+        aliases:
+          - widget-gumy-ai
+    # NO host ports — Caddy routes by the network alias on the shared web network.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+
+networks:
+  web:
+    external: true

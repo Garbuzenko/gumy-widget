@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>gumy-widget — embeddable character chat</title>
+    <meta name="description" content="Drop one script tag on any website and get a floating chat launcher that lets visitors talk to a gumy.ai character." />
+    <style>
+      :root {
+        --bg: #0d0d12;
+        --panel: #16161f;
+        --line: #26263440;
+        --fg: #f4f4f8;
+        --muted: #9a9aa8;
+        --accent: #7c5cff;
+        --accent-2: #ff5ca8;
+        --code-bg: #0a0a0f;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+        background: radial-gradient(1200px 700px at 80% -10%, #241a4d 0%, transparent 55%),
+                    radial-gradient(900px 600px at -10% 20%, #3a1030 0%, transparent 50%),
+                    var(--bg);
+        color: var(--fg);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { max-width: 720px; margin: 0 auto; padding: 96px 24px 220px; }
+      .badge {
+        display: inline-block; font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
+        color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
+        padding: 5px 14px; margin-bottom: 26px; background: #ffffff08;
+      }
+      h1 {
+        font-size: clamp(34px, 6vw, 52px); line-height: 1.05; margin: 0 0 18px; letter-spacing: -0.02em;
+        background: linear-gradient(100deg, var(--fg), var(--accent) 60%, var(--accent-2));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .lead { font-size: 19px; color: #d3d3de; margin: 0 0 12px; }
+      .sub { color: var(--muted); margin: 0 0 40px; }
+      .hint {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 15px; color: var(--muted); margin-bottom: 44px;
+      }
+      .hint b { color: var(--fg); }
+      .arrow { color: var(--accent); font-weight: 700; }
+      h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 48px 0 14px; }
+      pre {
+        background: var(--code-bg); border: 1px solid var(--line); border-radius: 14px;
+        padding: 20px 22px; overflow-x: auto; margin: 0 0 20px;
+        font-size: 14px; line-height: 1.7;
+      }
+      code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; }
+      pre code { color: #e6e6f0; }
+      .tok-tag { color: #ff8fb3; }
+      .tok-attr { color: #a99bff; }
+      .tok-str { color: #8fe3a8; }
+      .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 8px 0 8px; }
+      .card { border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; background: #ffffff05; }
+      .card h3 { margin: 0 0 6px; font-size: 15px; }
+      .card p { margin: 0; font-size: 14px; color: var(--muted); }
+      footer { color: var(--muted); font-size: 14px; margin-top: 56px; border-top: 1px solid var(--line); padding-top: 24px; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge">gumy-widget · live</span>
+      <h1>One script tag.<br />A character on every page.</h1>
+      <p class="lead">
+        <b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and
+        talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that sits over your
+        page — expandable to full screen, isolated in a Shadow DOM so it never clashes with your CSS.
+      </p>
+      <p class="sub">No build step, no dependencies, no CORS setup. This very page runs it.</p>
+
+      <p class="hint">
+        <span class="arrow">↘</span> The launcher is in the bottom-right corner right now — <b>click it and start chatting.</b>
+      </p>
+
+      <h2>Integration</h2>
+      <pre><code><span class="tok-tag">&lt;script</span> <span class="tok-attr">src</span>=<span class="tok-str">"https://gumy.ai/embed.js"</span>
+        <span class="tok-attr">data-character</span>=<span class="tok-str">"taylor-swift"</span>
+        <span class="tok-attr">data-lang</span>=<span class="tok-str">"en"</span>
+        <span class="tok-attr">data-theme</span>=<span class="tok-str">"dark"</span>
+        <span class="tok-attr">async</span><span class="tok-tag">&gt;&lt;/script&gt;</span></code></pre>
+
+      <h2>What you get</h2>
+      <div class="grid">
+        <div class="card"><h3>Floating launcher</h3><p>Sits in a corner, opens a chat panel over your page.</p></div>
+        <div class="card"><h3>Full-screen expand</h3><p>One tap grows the corner card into an immersive view.</p></div>
+        <div class="card"><h3>Shadow-DOM isolated</h3><p>Its styles can't leak into — or out of — your site.</p></div>
+        <div class="card"><h3>Runtime API</h3><p><code>GumyChat.open()</code>, <code>.setCharacter()</code> &amp; more.</p></div>
+      </div>
+
+      <footer>
+        Source of truth: <a href="https://github.com/Garbuzenko/gumy-widget">Garbuzenko/gumy-widget</a>.
+        The conversation runs on <a href="https://gumy.ai">gumy.ai</a> — this page owns only the overlay.
+      </footer>
+    </main>
+
+    <!-- The real, public integration: load embed.js from its canonical origin, gumy.ai. -->
+    <!-- Query overrides (?character= / ?theme= / ?lang=) let you try any character live. -->
+    <script>
+      var q = new URLSearchParams(location.search);
+      window.GumyChatConfig = {
+        character: q.get("character") || "taylor-swift",
+        lang: q.get("lang") || "en",
+        theme: q.get("theme") || "dark",
+        position: q.get("position") || "right",
+        origin: q.get("origin") || "https://gumy.ai",
+      };
+    </script>
+    <script src="https://gumy.ai/embed.js" async></script>
+  </body>
+</html>

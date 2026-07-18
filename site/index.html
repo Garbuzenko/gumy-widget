@@ -29,18 +29,7 @@
         -webkit-font-smoothing: antialiased;
       }
       main { max-width: 1040px; margin: 0 auto; padding: 72px 24px 180px; }
-      .hero { display: grid; gap: 48px; grid-template-columns: 1fr; align-items: center; }
-      @media (min-width: 900px) { .hero { grid-template-columns: 1.05fr 0.95fr; gap: 40px; } }
-      .demo { justify-self: center; width: 100%; max-width: 400px; }
-      .device {
-        position: relative; border: 1px solid var(--line); border-radius: 24px; overflow: hidden;
-        background: var(--panel); box-shadow: 0 30px 80px -30px #000, 0 0 0 1px #ffffff08 inset;
-        height: 620px; max-height: 78vh;
-      }
-      .device-cap {
-        text-align: center; color: var(--muted); font-size: 13px; margin-top: 12px;
-      }
-      .device-cap b { color: var(--fg); }
+      .intro { max-width: 720px; }
       .badge {
         display: inline-block; font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
         color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
@@ -81,28 +70,23 @@
   </head>
   <body>
     <main>
-      <div class="hero">
-        <div>
-          <span class="badge">gumy-widget · live</span>
-          <h1>One script tag.<br />A character on every page.</h1>
-          <p class="lead">
-            <b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and
-            talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that sits over your
-            page — expandable to full screen, isolated in a Shadow DOM so it never clashes with your CSS.
-          </p>
-          <p class="sub">
-            No build step, no dependencies, no iframe. The widget on the right is the <b>real
-            thing, live right now</b> — its own bubbles and composer, streaming straight from
-            gumy.ai. Say hi.
-          </p>
-        </div>
-
-        <div class="demo">
-          <!-- The REAL widget, mounted inline (data-mount) — native message bubbles + composer in a
-               Shadow DOM, streaming from gumy.ai's /api/embed/chat. No iframe, no embedded site. -->
-          <div class="device" id="gumy-demo"></div>
-          <p class="device-cap">The native widget — <b>live</b>, streaming from <b>gumy.ai</b></p>
-        </div>
+      <div class="intro">
+        <span class="badge">gumy-widget · live</span>
+        <h1>One script tag.<br />A character on every page.</h1>
+        <p class="lead">
+          <b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and
+          talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that floats over your
+          page — <b>expandable to full screen</b>, isolated in a Shadow DOM so it never clashes with
+          your CSS.
+        </p>
+        <p class="sub">
+          No build step, no dependencies, no iframe — native bubbles and a composer, streaming
+          straight from gumy.ai. The real widget is <b>floating in the bottom-right corner right
+          now</b> — say hi, then hit the <b>⤢ expand</b> button to take it full screen.
+        </p>
+        <p class="hint">
+          <span class="arrow">↘</span> <b>Live widget</b> — floating in the corner
+        </p>
       </div>
 
       <h2>Integration</h2>
@@ -126,17 +110,19 @@
       </footer>
     </main>
 
-    <!-- The real, public integration: load embed.js from its canonical origin, gumy.ai, and mount
-         it INLINE inside the device box as a live, native demo (data-mount). Query overrides
-         (?character= / ?theme= / ?lang=) let you try any character live. -->
+    <!-- The real, public integration: load embed.js from its canonical origin, gumy.ai. It mounts a
+         FLOATING launcher (wearing the character's face) in the corner and auto-opens as a live demo;
+         the panel's ⤢ button takes it full screen. Query overrides (?character= / ?theme= / ?lang= /
+         ?open=false / ?position=left) let you try any character live. -->
     <script>
       var q = new URLSearchParams(location.search);
       window.GumyChatConfig = {
         character: q.get("character") || "taylor-swift",
         lang: q.get("lang") || "en",
         theme: q.get("theme") || "dark",
+        position: q.get("position") || "right",
         origin: q.get("origin") || "https://gumy.ai",
-        mount: "#gumy-demo",
+        autoOpen: q.get("open") !== "false",
       };
     </script>
     <script src="https://gumy.ai/embed.js" async></script>

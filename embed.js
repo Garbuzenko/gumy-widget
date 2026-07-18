@@ -157,6 +157,8 @@
     "background:" + accent + ";box-shadow:0 8px 24px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;" +
     "justify-content:center;z-index:2147483000;transition:transform .18s ease,opacity .18s ease}" +
     ".launcher:hover{transform:scale(1.06)}" +
+    ".launcher.has-avatar{background-size:cover;background-position:center;border:2px solid #ffffffe0;" +
+    "box-shadow:0 8px 24px rgba(0,0,0,.32),0 0 0 3px " + accent + "55}" +
     ".launcher.hidden{opacity:0;pointer-events:none;transform:scale(.6)}" +
     panelBox +
     ".panel{background:" + C.bg + ";color:" + C.fg + ";overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.42);" +
@@ -288,6 +290,25 @@
     rules.textContent += ".row.user .bubble{background:" + hex + "!important}.send{background:" + hex + "!important}";
   }
 
+  // Put the character's face on the corner launcher (floating mode) — preload so it only swaps in
+  // once the image is ready, otherwise keep the default chat glyph.
+  function paintLauncher(url) {
+    if (!launcher || !url) return;
+    var img = new global.Image();
+    img.onload = function () {
+      launcher.innerHTML = "";
+      launcher.classList.add("has-avatar");
+      // Set the background longhands INLINE: applyAccent() writes `launcher.style.background` (a
+      // shorthand that resets size/position to their defaults), and inline wins over the stylesheet
+      // — so cover/center must be inline too, applied here (after the async load) to stick.
+      launcher.style.backgroundImage = "url('" + url.replace(/'/g, "%27") + "')";
+      launcher.style.backgroundSize = "cover";
+      launcher.style.backgroundPosition = "center";
+      launcher.style.backgroundRepeat = "no-repeat";
+    };
+    img.src = url;
+  }
+
   function fetchCharacter() {
     if (loadedChar) return;
     loadedChar = true;
@@ -303,6 +324,7 @@
           if (c.image) {
             avatarEl.src = c.image;
             avatarEl.style.display = "block";
+            paintLauncher(c.image); // show the character's face on the corner bubble
           }
           if (c.bio) subEl.textContent = c.bio;
           if (c.accent) applyAccent(c.accent);
@@ -458,6 +480,11 @@
     subEl.textContent = "";
     avatarEl.removeAttribute("src");
     avatarEl.style.display = "none";
+    if (launcher) {
+      launcher.classList.remove("has-avatar");
+      launcher.style.backgroundImage = "";
+      launcher.innerHTML = ICON_CHAT;
+    }
     fetchCharacter();
     ensureGreeting();
   }
@@ -489,6 +516,7 @@
       setTimeout(function () { textarea.focus(); }, 50);
     } else {
       doc.body.appendChild(host);
+      fetchCharacter(); // load early so the corner launcher wears the character's face before opening
       if (cfg.autoOpen) open();
     }
   }

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>gumy-widget — embeddable character chat</title>
     <meta name="description" content="Drop one script tag on any website and get a floating chat launcher that lets visitors talk to a gumy.ai character." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E" />
     <style>
       :root {
         --bg: #0d0d12;
@@ -66,49 +67,223 @@
       footer { color: var(--muted); font-size: 14px; margin-top: 56px; border-top: 1px solid var(--line); padding-top: 24px; }
       a { color: var(--accent); text-decoration: none; }
       a:hover { text-decoration: underline; }
+
+      /* ── Burger menu (mirrors gumy.ai's header overflow menu: round trigger, card of
+         rounded rows, language pills after a Languages glyph) ─────────────────────── */
+      .topbar { position: fixed; top: 14px; right: 14px; z-index: 60; }
+      .burger-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 44px; height: 44px; border: 0; border-radius: 999px;
+        background: transparent; color: var(--muted); cursor: pointer;
+        transition: background .15s, color .15s, transform .1s;
+      }
+      .burger-btn:hover { background: #ffffff10; color: var(--fg); }
+      .burger-btn:active { transform: scale(.95); }
+      .menu {
+        position: absolute; right: 0; top: calc(100% + 8px); width: 240px;
+        background: var(--panel); border: 1px solid #262634; border-radius: 16px;
+        padding: 4px; box-shadow: 0 16px 48px #00000090;
+      }
+      .menu[hidden] { display: none; }
+      .lang-row { display: flex; align-items: center; gap: 4px; padding: 2px 12px; color: var(--muted); }
+      .lang-row svg { margin-right: 6px; flex: none; }
+      .lang-btn {
+        min-width: 44px; min-height: 44px; border: 0; border-radius: 999px;
+        background: transparent; color: var(--muted); cursor: pointer;
+        font: inherit; font-size: 12px; font-weight: 600; text-transform: uppercase;
+        transition: background .15s, color .15s;
+      }
+      .lang-btn:hover { color: var(--fg); }
+      .lang-btn[aria-checked="true"] { background: #ffffff12; color: var(--fg); }
+      .menu-divider { height: 1px; background: #262634; margin: 4px 8px; }
+      .menu-link {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        padding: 12px; border-radius: 12px; color: var(--fg);
+        font-size: 13px; font-weight: 500; text-decoration: none;
+        transition: background .15s;
+      }
+      .menu-link:hover { background: #ffffff08; text-decoration: none; }
+      .menu-link svg { color: var(--muted); flex: none; }
     </style>
   </head>
   <body>
+    <!-- Burger — fixed top-right like gumy.ai's header menu. Language pills switch the page
+         copy AND remount the widget in that language (full reload with ?lang= so the widget
+         re-fetches the character in the picked language). -->
+    <div class="topbar" id="topbar">
+      <button type="button" class="burger-btn" id="burger" aria-haspopup="menu" aria-expanded="false" aria-label="Menu">
+        <svg id="icon-menu" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+        <svg id="icon-close" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <div class="menu" id="menu" role="menu" hidden>
+        <div class="lang-row" role="group" aria-label="Language">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+          <button type="button" class="lang-btn" role="menuitemradio" data-lang-pick="en" aria-checked="false">en</button>
+          <button type="button" class="lang-btn" role="menuitemradio" data-lang-pick="ru" aria-checked="false">ru</button>
+        </div>
+        <div class="menu-divider" aria-hidden="true"></div>
+        <a class="menu-link" role="menuitem" href="https://gumy.ai" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          <span data-i18n="menu.gumy">Open gumy.ai</span>
+        </a>
+        <a class="menu-link" role="menuitem" href="https://github.com/Garbuzenko/gumy-widget" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+          <span data-i18n="menu.github">Source on GitHub</span>
+        </a>
+      </div>
+    </div>
+
     <main>
       <div class="intro">
         <span class="badge">gumy-widget · live</span>
-        <h1>One script tag.<br />A character on every page.</h1>
-        <p class="lead">
+        <h1 data-i18n="h1">One script tag.<br />A character on every page.</h1>
+        <p class="lead" data-i18n="lead">
           <b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and
           talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that floats over your
           page — <b>expandable to full screen</b>, isolated in a Shadow DOM so it never clashes with
           your CSS.
         </p>
-        <p class="sub">
+        <p class="sub" data-i18n="sub">
           No build step, no dependencies, no iframe — native bubbles and a composer, streaming
           straight from gumy.ai. The real widget is <b>floating in the bottom-right corner right
           now</b> — say hi, then hit the <b>⤢ expand</b> button to take it full screen.
         </p>
         <p class="hint">
-          <span class="arrow">↘</span> <b>Live widget</b> — floating in the corner
+          <span class="arrow">↘</span> <span data-i18n="hint"><b>Live widget</b> — floating in the corner</span>
         </p>
       </div>
 
-      <h2>Integration</h2>
+      <h2 data-i18n="integration">Integration</h2>
       <pre><code><span class="tok-tag">&lt;script</span> <span class="tok-attr">src</span>=<span class="tok-str">"https://gumy.ai/embed.js"</span>
         <span class="tok-attr">data-character</span>=<span class="tok-str">"taylor-swift"</span>
-        <span class="tok-attr">data-lang</span>=<span class="tok-str">"en"</span>
+        <span class="tok-attr">data-lang</span>=<span class="tok-str" id="code-lang">"en"</span>
         <span class="tok-attr">data-theme</span>=<span class="tok-str">"dark"</span>
         <span class="tok-attr">async</span><span class="tok-tag">&gt;&lt;/script&gt;</span></code></pre>
 
-      <h2>What you get</h2>
+      <h2 data-i18n="whatYouGet">What you get</h2>
       <div class="grid">
-        <div class="card"><h3>Floating launcher</h3><p>Sits in a corner, opens a chat panel over your page.</p></div>
-        <div class="card"><h3>Full-screen expand</h3><p>One tap grows the corner card into an immersive view.</p></div>
-        <div class="card"><h3>Shadow-DOM isolated</h3><p>Its styles can't leak into — or out of — your site.</p></div>
-        <div class="card"><h3>Runtime API</h3><p><code>GumyChat.open()</code>, <code>.setCharacter()</code> &amp; more.</p></div>
+        <div class="card"><h3 data-i18n="card1h">Floating launcher</h3><p data-i18n="card1p">Sits in a corner, opens a chat panel over your page.</p></div>
+        <div class="card"><h3 data-i18n="card2h">Full-screen expand</h3><p data-i18n="card2p">One tap grows the corner card into an immersive view.</p></div>
+        <div class="card"><h3 data-i18n="card3h">Shadow-DOM isolated</h3><p data-i18n="card3p">Its styles can't leak into — or out of — your site.</p></div>
+        <div class="card"><h3 data-i18n="card4h">Runtime API</h3><p data-i18n="card4p"><code>GumyChat.open()</code>, <code>.setCharacter()</code> &amp; more.</p></div>
       </div>
 
-      <footer>
+      <footer data-i18n="footer">
         Source of truth: <a href="https://github.com/Garbuzenko/gumy-widget">Garbuzenko/gumy-widget</a>.
         The conversation runs on <a href="https://gumy.ai">gumy.ai</a> — this page owns only the overlay.
       </footer>
     </main>
+
+    <!-- Page i18n (en/ru, mirrors gumy.ai's locales) + the burger behaviour. Picking a language
+         reloads with ?lang= so both this copy AND the live widget below remount in it. -->
+    <script>
+      (function () {
+        var LANGS = ["en", "ru"];
+        var I18N = {
+          en: {
+            title: "gumy-widget — embeddable character chat",
+            description: "Drop one script tag on any website and get a floating chat launcher that lets visitors talk to a gumy.ai character.",
+            menuAria: "Menu",
+            "menu.gumy": "Open gumy.ai",
+            "menu.github": "Source on GitHub",
+            h1: "One script tag.<br />A character on every page.",
+            lead: '<b>gumy-widget</b> drops a floating chat launcher onto any website. Visitors click it and talk to a <a href="https://gumy.ai">gumy.ai</a> character in a panel that floats over your page — <b>expandable to full screen</b>, isolated in a Shadow DOM so it never clashes with your CSS.',
+            sub: "No build step, no dependencies, no iframe — native bubbles and a composer, streaming straight from gumy.ai. The real widget is <b>floating in the bottom-right corner right now</b> — say hi, then hit the <b>⤢ expand</b> button to take it full screen.",
+            hint: "<b>Live widget</b> — floating in the corner",
+            integration: "Integration",
+            whatYouGet: "What you get",
+            card1h: "Floating launcher",
+            card1p: "Sits in a corner, opens a chat panel over your page.",
+            card2h: "Full-screen expand",
+            card2p: "One tap grows the corner card into an immersive view.",
+            card3h: "Shadow-DOM isolated",
+            card3p: "Its styles can't leak into — or out of — your site.",
+            card4h: "Runtime API",
+            card4p: "<code>GumyChat.open()</code>, <code>.setCharacter()</code> &amp; more.",
+            footer: 'Source of truth: <a href="https://github.com/Garbuzenko/gumy-widget">Garbuzenko/gumy-widget</a>. The conversation runs on <a href="https://gumy.ai">gumy.ai</a> — this page owns only the overlay.'
+          },
+          ru: {
+            title: "gumy-widget — встраиваемый чат с персонажем",
+            description: "Один тег script на любом сайте — и посетители говорят с персонажем gumy.ai через плавающий чат-лаунчер.",
+            menuAria: "Меню",
+            "menu.gumy": "Открыть gumy.ai",
+            "menu.github": "Исходники на GitHub",
+            h1: "Один тег script.<br />Персонаж на каждой странице.",
+            lead: '<b>gumy-widget</b> добавляет плавающий чат-лаунчер на любой сайт. Посетитель нажимает на него и говорит с персонажем <a href="https://gumy.ai">gumy.ai</a> в панели поверх страницы — <b>разворачивается на весь экран</b>, изолирована в Shadow DOM и никогда не конфликтует с вашим CSS.',
+            sub: "Без сборки, без зависимостей, без iframe — нативные пузыри сообщений и композер, стриминг напрямую с gumy.ai. Настоящий виджет <b>прямо сейчас плавает в правом нижнем углу</b> — поздоровайтесь, затем нажмите <b>⤢</b>, чтобы развернуть его на весь экран.",
+            hint: "<b>Живой виджет</b> — плавает в углу",
+            integration: "Интеграция",
+            whatYouGet: "Что вы получаете",
+            card1h: "Плавающий лаунчер",
+            card1p: "Живёт в углу и открывает панель чата поверх страницы.",
+            card2h: "Полный экран",
+            card2p: "Одно нажатие превращает карточку в углу в полноэкранный вид.",
+            card3h: "Изоляция Shadow DOM",
+            card3p: "Его стили не проникают на ваш сайт — и наоборот.",
+            card4h: "Runtime API",
+            card4p: "<code>GumyChat.open()</code>, <code>.setCharacter()</code> и другое.",
+            footer: 'Исходники: <a href="https://github.com/Garbuzenko/gumy-widget">Garbuzenko/gumy-widget</a>. Разговор идёт на <a href="https://gumy.ai">gumy.ai</a> — эта страница владеет только оверлеем.'
+          }
+        };
+
+        var q = new URLSearchParams(location.search);
+        var stored = null;
+        try { stored = localStorage.getItem("gumy-widget-lang"); } catch (e) {}
+        var lang = q.get("lang") || stored || (navigator.language || "en").slice(0, 2);
+        if (LANGS.indexOf(lang) < 0) lang = "en";
+        window.__siteLang = lang;
+
+        var dict = I18N[lang];
+        document.documentElement.lang = lang;
+        document.title = dict.title;
+        var meta = document.querySelector('meta[name="description"]');
+        if (meta) meta.setAttribute("content", dict.description);
+        var nodes = document.querySelectorAll("[data-i18n]");
+        for (var i = 0; i < nodes.length; i++) {
+          var key = nodes[i].getAttribute("data-i18n");
+          if (dict[key]) nodes[i].innerHTML = dict[key];
+        }
+        document.getElementById("code-lang").textContent = '"' + lang + '"';
+
+        // ── Burger open/close ── click outside or Escape dismisses, like gumy.ai's menu.
+        var topbar = document.getElementById("topbar");
+        var btn = document.getElementById("burger");
+        var menu = document.getElementById("menu");
+        var iconMenu = document.getElementById("icon-menu");
+        var iconClose = document.getElementById("icon-close");
+        btn.setAttribute("aria-label", dict.menuAria);
+
+        function setOpen(open) {
+          menu.hidden = !open;
+          btn.setAttribute("aria-expanded", String(open));
+          iconMenu.style.display = open ? "none" : "";
+          iconClose.style.display = open ? "" : "none";
+        }
+        btn.addEventListener("click", function () { setOpen(menu.hidden); });
+        document.addEventListener("click", function (e) {
+          if (!menu.hidden && !topbar.contains(e.target)) setOpen(false);
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && !menu.hidden) { setOpen(false); btn.focus(); }
+        });
+
+        // ── Language pills ── mark the active one; picking the other reloads with ?lang=.
+        var pills = document.querySelectorAll("[data-lang-pick]");
+        for (var p = 0; p < pills.length; p++) {
+          (function (pill) {
+            var l = pill.getAttribute("data-lang-pick");
+            pill.setAttribute("aria-checked", String(l === lang));
+            pill.addEventListener("click", function () {
+              if (l === lang) { setOpen(false); return; }
+              try { localStorage.setItem("gumy-widget-lang", l); } catch (e) {}
+              var u = new URL(location.href);
+              u.searchParams.set("lang", l);
+              location.href = u.toString();
+            });
+          })(pills[p]);
+        }
+      })();
+    </script>
 
     <!-- The real, public integration: load embed.js from its canonical origin, gumy.ai. It mounts a
          FLOATING launcher (wearing the character's face) in the corner and auto-opens as a live demo;
@@ -118,7 +293,7 @@
       var q = new URLSearchParams(location.search);
       window.GumyChatConfig = {
         character: q.get("character") || "taylor-swift",
-        lang: q.get("lang") || "en",
+        lang: window.__siteLang || q.get("lang") || "en",
         theme: q.get("theme") || "dark",
         position: q.get("position") || "right",
         origin: q.get("origin") || "https://gumy.ai",

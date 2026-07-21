@@ -70,7 +70,9 @@
 
       /* ── Burger menu (mirrors gumy.ai's header overflow menu: round trigger, card of
          rounded rows, language pills after a Languages glyph) ─────────────────────── */
-      .topbar { position: fixed; top: 14px; right: 14px; z-index: 60; }
+      /* Above the widget overlay (embed.js panel sits at z-index 2147483001) so the
+         open menu card is never hidden behind the floating chat. */
+      .topbar { position: fixed; top: 14px; right: 14px; z-index: 2147483002; }
       .burger-btn {
         display: flex; align-items: center; justify-content: center;
         width: 44px; height: 44px; border: 0; border-radius: 999px;

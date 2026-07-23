@@ -40,7 +40,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.1.0";
+  var VERSION = "2.1.1";
   var LANGS = { en: 1, ru: 1 };
   var THEMES = { dark: 1, light: 1 };
   var SIDES = { left: 1, right: 1 };
@@ -230,8 +230,6 @@
     ".send{flex:0 0 auto;width:40px;height:40px;border:0;border-radius:12px;background:" + accent + ";cursor:pointer;" +
     "display:flex;align-items:center;justify-content:center;transition:opacity .15s ease}" +
     ".send:disabled{opacity:.45;cursor:default}" +
-    ".foot{flex:0 0 auto;text-align:center;font-size:10px;color:" + C.muted + ";padding:0 0 8px}" +
-    ".foot a{color:" + C.muted + ";text-decoration:none}" +
     "@media (prefers-reduced-motion:reduce){.launcher,.panel,.dots i{transition:none;animation:none}}";
 
   var host = doc.createElement("div");
@@ -263,8 +261,7 @@
     '<div class="composer">' +
     '<textarea rows="1" aria-label="Message"></textarea>' +
     '<button class="send" aria-label="Send"></button>' +
-    "</div>" +
-    '<div class="foot">powered by <a href="https://gumy.ai" target="_blank" rel="noopener">gumy.ai</a></div>';
+    "</div>";
   root.appendChild(panel);
 
   var head = panel.querySelector(".head");

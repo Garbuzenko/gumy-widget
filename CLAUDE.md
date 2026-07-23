@@ -17,14 +17,24 @@ of its own — it talks to gumy.ai over HTTP only:
 
 - `GET  {origin}/api/embed/character?c=<slug>&lang=<lang>` → hero fields (`name`, `image`,
   `accent`, `bio`, …) to paint the panel header. Never returns the persona.
-- `POST {origin}/api/embed/chat` `{ c, messages, lang, theme }` → NDJSON stream of
-  `{"t":"text","v":"…"}` deltas, then `{"t":"done"}` (or `{"t":"error","v":"…"}`). The persona is
-  resolved and assembled **server-side** from the slug, so it never enters the browser.
+- `POST {origin}/api/embed/chat` `{ c, messages, lang, theme, mcp?, widgetContext? }` → NDJSON
+  stream of `{"t":"text","v":"…"}` deltas, then `{"t":"done"}` (or `{"t":"error","v":"…"}`); with
+  MCP servers selected also `{"t":"widget",server,uri,data,args?,prefersBorder?}` and
+  `{"t":"photo",url,alt?}`. The persona is resolved and assembled **server-side** from the slug,
+  so it never enters the browser.
+- `GET {origin}/api/mcp/widget?server=&uri=` → an MCP Apps UI bundle for a `widget` event,
+  rendered in a **sandboxed iframe** (no `allow-same-origin`; the route's own CSP also carries
+  `frame-ancestors *` + a `sandbox` directive so cross-origin framing stays safe). The widget
+  implements the HOST side of the MCP Apps postMessage handshake (protocol 2026-01-26):
+  `ui/initialize` → `initialized` → `tool-input` + `tool-result`; obeys `size-changed`, forwards
+  `ui/message` as a real visitor turn, snapshots `ui/update-model-context` into `widgetContext`.
 
 Both endpoints are **CORS-open** (`Access-Control-Allow-Origin: *`) so the widget works on any
 origin. Embed visitors are always **anonymous** (cross-origin → no gumy.ai cookies), metered by
-gumy.ai's per-IP daily quota. The widget deliberately does NOT carry voice, MCP tools, artifacts,
-wallet/sign-in or the age wall — it is a plain streamed character chat.
+gumy.ai's per-IP daily quota. **MCP tools are opt-in per embed**: `data-mcp="wikipedia,chess"`
+pre-selects servers at connection time; the backend intersects that with the character's own
+mascot binding (client can only narrow, `cast` always excluded). The widget still deliberately
+does NOT carry voice, artifacts, wallet/sign-in or the age wall.
 
 ## Files
 

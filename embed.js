@@ -11,8 +11,11 @@
  *
  * Backend contract (served by gumy.ai, CORS-open so the widget works on any origin):
  *   GET  {origin}/api/embed/character?c=<slug>&lang=<lang>   → { name, image, accent, bio, … }
- *   POST {origin}/api/embed/chat  { c, messages, lang, theme } → NDJSON stream of
- *        {"t":"text","v":"…"}  text deltas, then {"t":"done"} (or {"t":"error","v":"…"}).
+ *   POST {origin}/api/embed/chat  { c, messages, lang, theme, mcp?, widgetContext? } → NDJSON
+ *        stream of {"t":"text","v":"…"} deltas, then {"t":"done"} (or {"t":"error","v":"…"});
+ *        with MCP servers selected the stream may also carry {"t":"widget",server,uri,data,…}
+ *        (an MCP Apps UI resource, rendered as a sandboxed iframe bubble) and
+ *        {"t":"photo",url,alt?} (an image bubble).
  *
  * The SAME file is served as https://gumy.ai/embed.js — gumy-widget is the source of truth,
  * gumy.ai is the origin that serves it AND hosts the /api/embed/* endpoints (see README).
@@ -27,18 +30,35 @@
  *   data-origin     base URL of the chat API                  default "https://gumy.ai"
  *   data-mount      CSS selector — mount the chat INLINE inside that element (showcase mode:
  *                   no floating launcher, panel fills the container, always open)
+ *   data-mcp        comma-separated MCP server names this embed pre-selects for the character
+ *                   (e.g. "wikipedia,chess"). The backend intersects the list with the
+ *                   character's own binding — it can only narrow, never widen, access. Absent →
+ *                   plain chat, no tools. (GumyChatConfig.mcp may be an array or a string.)
  *
  * Runtime API: window.GumyChat = { open(), close(), toggle(), setCharacter(slug) }.
  */
 (function (global) {
   "use strict";
 
-  var VERSION = "2.0.0";
+  var VERSION = "2.1.0";
   var LANGS = { en: 1, ru: 1 };
   var THEMES = { dark: 1, light: 1 };
   var SIDES = { left: 1, right: 1 };
 
   // ── Pure config/URL helpers (also exported for tests; no DOM here) ──────────────────────
+
+  // The embed's pre-selected MCP server names: an array or a comma/space-separated string →
+  // trimmed, lowercased, deduped array. Order is preserved; garbage entries drop out.
+  function parseMcpList(v) {
+    var items = Array.isArray(v) ? v : String(v == null ? "" : v).split(/[\s,]+/);
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var name = String(items[i] || "").trim().toLowerCase();
+      if (name && out.indexOf(name) === -1) out.push(name);
+    }
+    return out;
+  }
+
   function normalizeConfig(raw) {
     raw = raw || {};
     var lang = String(raw.lang || "").toLowerCase();
@@ -54,6 +74,7 @@
       title: raw.title ? String(raw.title) : "",
       autoOpen: raw.autoOpen === true || raw.autoOpen === "true",
       mount: raw.mount ? String(raw.mount) : "",
+      mcp: parseMcpList(raw.mcp),
     };
   }
 
@@ -73,10 +94,23 @@
     return cfg.origin + "/api/embed/chat";
   }
 
+  // MCP Apps widget bundle for one tool result (iframed, sandboxed).
+  function buildWidgetUrl(cfg, server, uri) {
+    return (
+      cfg.origin +
+      "/api/mcp/widget?server=" +
+      encodeURIComponent(server) +
+      "&uri=" +
+      encodeURIComponent(uri)
+    );
+  }
+
   var api = {
     normalizeConfig: normalizeConfig,
+    parseMcpList: parseMcpList,
     buildCharUrl: buildCharUrl,
     buildChatUrl: buildChatUrl,
+    buildWidgetUrl: buildWidgetUrl,
     VERSION: VERSION,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -102,6 +136,7 @@
     origin: override.origin || d.origin,
     autoOpen: override.autoOpen != null ? override.autoOpen : d.autoOpen,
     mount: override.mount || d.mount,
+    mcp: override.mcp != null ? override.mcp : d.mcp,
   });
 
   if (!cfg.character) {
@@ -179,6 +214,11 @@
     ".row.bot .bubble{background:" + C.bot + ";color:" + C.botFg + ";border-bottom-left-radius:5px}" +
     ".row.user .bubble{background:" + accent + ";color:#fff;border-bottom-right-radius:5px}" +
     ".bubble.err{background:transparent;color:#e5484d;border:1px solid #e5484d55;font-size:13px}" +
+    ".row.widget{width:100%}" +
+    ".wframe{display:block;width:100%;border:0;border-radius:14px;background:transparent;transition:height .2s ease}" +
+    ".wwrap{width:100%;overflow:hidden;border-radius:14px}" +
+    ".wwrap.bordered{background:" + C.bot + "}" +
+    ".photo{max-width:82%;border-radius:16px;display:block}" +
     ".dots{display:inline-flex;gap:4px;padding:4px 2px}" +
     ".dots i{width:6px;height:6px;border-radius:50%;background:" + C.muted + ";opacity:.5;animation:gb 1s infinite}" +
     ".dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}" +
@@ -248,6 +288,8 @@
   var loadedChar = false;
   var busy = false;
   var abort = null;
+  var widgetContext = {}; // server → latest ui/update-model-context snapshot (sent with each turn)
+  var frames = []; // live MCP widget frames: {frame, server, data, args, ready, sized, grace}
 
   function scrollDown() {
     msgsEl.scrollTop = msgsEl.scrollHeight;
@@ -277,6 +319,172 @@
     scrollDown();
     return bubble;
   }
+
+  // ── MCP Apps widgets ────────────────────────────────────────────────────────────────
+  // A `{"t":"widget"}` stream event is an MCP server's own UI for its tool result. It renders as
+  // a full-width sandboxed iframe bubble on {origin}/api/mcp/widget, and this widget implements
+  // the HOST side of the MCP Apps postMessage handshake (protocol 2026-01-26): answer
+  // `ui/initialize`, send nothing until the frame reports `initialized`, then push
+  // `ui/notifications/tool-input` followed by `tool-result`. Height is REPORTED by the bundle
+  // (`size-changed`) — the frame is sandboxed without same-origin, so it cannot be measured.
+  var WIDGET_PROTOCOL = "2026-01-26";
+  var FRAME_H_MIN = 120; // starting height — a self-sizing bundle resizes within a frame or two
+  var FRAME_H_FALLBACK = 460; // a bundle that never reports gets a usable scrollable box
+  var SIZE_GRACE_MS = 700; // how long a bundle gets to report before the fallback applies
+
+  // Height ceiling for a widget frame: a fraction of the panel, never less than a usable box.
+  function frameMaxH() {
+    var h = (panel.getBoundingClientRect && panel.getBoundingClientRect().height) || 680;
+    return Math.max(240, Math.round(h * 0.6));
+  }
+
+  function addPhoto(url, alt) {
+    if (!/^https?:\/\//.test(String(url || ""))) return;
+    var row = doc.createElement("div");
+    row.className = "row bot";
+    var img = doc.createElement("img");
+    img.className = "photo";
+    img.alt = alt || "";
+    img.onload = scrollDown;
+    img.src = url;
+    row.appendChild(img);
+    msgsEl.appendChild(row);
+    scrollDown();
+  }
+
+  function addWidget(ev) {
+    var row = doc.createElement("div");
+    row.className = "row bot widget";
+    var wrap = doc.createElement("div");
+    wrap.className = "wwrap" + (ev.prefersBorder ? " bordered" : "");
+    var frame = doc.createElement("iframe");
+    frame.className = "wframe";
+    // No `allow-same-origin`: the bundle is third-party code and must stay at an opaque origin
+    // (the server's own CSP `sandbox` directive enforces the same floor).
+    frame.setAttribute(
+      "sandbox",
+      "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms",
+    );
+    frame.setAttribute("referrerpolicy", "no-referrer");
+    frame.title = String(ev.server);
+    frame.style.height = FRAME_H_MIN + "px";
+    frame.src = buildWidgetUrl(cfg, ev.server, ev.uri);
+    wrap.appendChild(frame);
+    row.appendChild(wrap);
+    msgsEl.appendChild(row);
+    frames.push({
+      frame: frame,
+      server: String(ev.server),
+      data: ev.data && typeof ev.data === "object" ? ev.data : {},
+      args: ev.args && typeof ev.args === "object" ? ev.args : {},
+      ready: false,
+      sized: false,
+      grace: null,
+    });
+    scrollDown();
+  }
+
+  function widgetEntry(source) {
+    for (var i = 0; i < frames.length; i++) {
+      var w = frames[i];
+      if (w.frame.contentWindow && w.frame.contentWindow === source) return w;
+    }
+    return null;
+  }
+
+  function postToFrame(w, msg) {
+    try {
+      w.frame.contentWindow.postMessage(msg, "*");
+    } catch (e) {}
+  }
+
+  // The turn's payload: arguments first (the standard requires it), then the result — whose
+  // params ARE the CallToolResult, so the render data arrives as `params.structuredContent`.
+  function deliverToolPayload(w) {
+    postToFrame(w, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/tool-input",
+      params: { arguments: w.args },
+    });
+    postToFrame(w, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/tool-result",
+      params: { structuredContent: w.data },
+    });
+    if (w.grace) clearTimeout(w.grace);
+    w.grace = setTimeout(function () {
+      if (!w.sized) w.frame.style.height = Math.min(FRAME_H_FALLBACK, frameMaxH()) + "px";
+    }, SIZE_GRACE_MS);
+  }
+
+  global.addEventListener("message", function (ev) {
+    // A sandboxed frame's origin is "null" and proves nothing — window identity is the check.
+    var w = widgetEntry(ev.source);
+    if (!w) return;
+    var m = ev.data;
+    if (!m || m.jsonrpc !== "2.0") return;
+
+    if (m.method === "ui/initialize") {
+      if (m.id === undefined) return;
+      postToFrame(w, {
+        jsonrpc: "2.0",
+        id: m.id,
+        result: {
+          protocolVersion: WIDGET_PROTOCOL,
+          hostInfo: { name: "gumy-widget", version: VERSION },
+          hostCapabilities: {},
+          hostContext: {
+            theme: cfg.theme,
+            displayMode: "inline",
+            availableDisplayModes: ["inline"],
+            containerDimensions: {
+              width: msgsEl.clientWidth ? Math.max(200, msgsEl.clientWidth - 32) : 360,
+              maxHeight: frameMaxH(),
+            },
+          },
+        },
+      });
+    } else if (
+      m.method === "ui/notifications/initialized" ||
+      m.method === "ui/notifications/ready" // legacy pre-standard readiness signal
+    ) {
+      w.ready = true;
+      deliverToolPayload(w);
+    } else if (m.method === "ui/notifications/size-changed") {
+      var h = m.params && m.params.height;
+      if (typeof h === "number" && h > 0) {
+        w.sized = true;
+        w.frame.style.height = Math.min(Math.round(h), frameMaxH()) + "px";
+        scrollDown();
+      }
+    } else if (m.method === "ui/message") {
+      // Widget → conversation: the visitor acted INSIDE the widget (moved a piece). Ack per
+      // spec, then send the text as a real visitor turn so the character answers it.
+      var p = m.params || {};
+      var text =
+        p.content && p.content.type === "text" && typeof p.content.text === "string"
+          ? p.content.text.trim()
+          : "";
+      var ok = p.role === "user" && text.length > 0;
+      if (m.id !== undefined) {
+        postToFrame(
+          w,
+          ok
+            ? { jsonrpc: "2.0", id: m.id, result: {} }
+            : { jsonrpc: "2.0", id: m.id, error: { code: -32000, message: "Invalid message format" } },
+        );
+      }
+      if (ok && !busy) send(text);
+    } else if (m.method === "ui/update-model-context") {
+      // Widget → model context: the widget's live state (board FEN, move history). The latest
+      // snapshot per server rides the next request as `widgetContext`.
+      var q = m.params || {};
+      if (m.id !== undefined) postToFrame(w, { jsonrpc: "2.0", id: m.id, result: {} });
+      if (q.structuredContent && typeof q.structuredContent === "object") {
+        widgetContext[w.server] = q.structuredContent;
+      }
+    }
+  });
 
   // Repaint the accent (character-supplied) into the two accented styles + the launcher.
   function applyAccent(hex) {
@@ -345,12 +553,18 @@
     textarea.disabled = on;
   }
 
-  function send() {
+  // `forced` (a string) sends widget-originated text (ui/message) as a real visitor turn;
+  // otherwise the composer's value is sent. NOTE: `send` is also a DOM event handler, so a
+  // non-string argument (the click Event) means "read the composer".
+  function send(forced) {
     if (busy) return;
-    var text = textarea.value.trim();
+    var fromWidget = typeof forced === "string" && forced.length > 0;
+    var text = fromWidget ? forced.trim() : textarea.value.trim();
     if (!text) return;
-    textarea.value = "";
-    autoGrow();
+    if (!fromWidget) {
+      textarea.value = "";
+      autoGrow();
+    }
     addBubble("user", text);
     messages.push({ role: "user", content: text });
 
@@ -392,17 +606,30 @@
       try { ev = JSON.parse(s); } catch (e) { return; }
       if (ev.t === "text" && typeof ev.v === "string") pushDelta(ev.v);
       else if (ev.t === "error" && typeof ev.v === "string") errText = ev.v;
+      else if (ev.t === "photo" && typeof ev.url === "string") addPhoto(ev.url, ev.alt);
+      else if (ev.t === "widget" && typeof ev.server === "string" && typeof ev.uri === "string")
+        addWidget(ev);
+    }
+
+    var payload = {
+      c: cfg.character,
+      messages: messages,
+      lang: cfg.lang,
+      theme: cfg.theme,
+      mcp: cfg.mcp,
+    };
+    // Live widget state (ui/update-model-context snapshots) — only meaningful with MCP on.
+    if (cfg.mcp.length) {
+      for (var ctxKey in widgetContext) {
+        payload.widgetContext = widgetContext;
+        break;
+      }
     }
 
     global.fetch(buildChatUrl(cfg), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        c: cfg.character,
-        messages: messages,
-        lang: cfg.lang,
-        theme: cfg.theme,
-      }),
+      body: JSON.stringify(payload),
       signal: abort ? abort.signal : undefined,
     })
       .then(function (res) {
@@ -475,6 +702,8 @@
     cfg.character = String(slug).trim();
     loadedChar = false;
     messages = [];
+    widgetContext = {};
+    frames = [];
     msgsEl.innerHTML = "";
     nameEl.textContent = cfg.title || "…";
     subEl.textContent = "";

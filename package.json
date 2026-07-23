@@ -1,6 +1,6 @@
 {
   "name": "gumy-widget",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Embeddable character-chat widget for gumy.ai — one script tag drops a floating chat launcher (with full-screen expand) onto any website.",
   "license": "MIT",
   "type": "module",

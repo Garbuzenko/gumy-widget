@@ -160,7 +160,19 @@
         <span class="tok-attr">data-character</span>=<span class="tok-str">"taylor-swift"</span>
         <span class="tok-attr">data-lang</span>=<span class="tok-str" id="code-lang">"en"</span>
         <span class="tok-attr">data-theme</span>=<span class="tok-str">"dark"</span>
+        <span class="tok-attr">data-mcp</span>=<span class="tok-str">"wikipedia,search"</span>
         <span class="tok-attr">async</span><span class="tok-tag">&gt;&lt;/script&gt;</span></code></pre>
+
+      <h2 data-i18n="mcpTitle">MCP tools — pre-selected at connection time</h2>
+      <p class="sub" data-i18n="mcpText">
+        Give the character live tools with <code>data-mcp</code>: name the MCP servers your embed
+        may use (comma-separated), and the character calls them mid-reply — Wikipedia facts, web
+        search, even an interactive chess board rendered right inside the panel. The list is fixed
+        by YOUR script tag (visitors can't change it) and is intersected with the character's own
+        server binding on gumy.ai, so it can only narrow access, never widen it.
+        <b>Try it live:</b> <a href="?character=garry-kasparov&amp;mcp=chess">Garry Kasparov with
+        the chess board</a> — ask him to show a famous game.
+      </p>
 
       <h2 data-i18n="whatYouGet">What you get</h2>
       <div class="grid">
@@ -168,6 +180,7 @@
         <div class="card"><h3 data-i18n="card2h">Full-screen expand</h3><p data-i18n="card2p">One tap grows the corner card into an immersive view.</p></div>
         <div class="card"><h3 data-i18n="card3h">Shadow-DOM isolated</h3><p data-i18n="card3p">Its styles can't leak into — or out of — your site.</p></div>
         <div class="card"><h3 data-i18n="card4h">Runtime API</h3><p data-i18n="card4p"><code>GumyChat.open()</code>, <code>.setCharacter()</code> &amp; more.</p></div>
+        <div class="card"><h3 data-i18n="card5h">MCP tools</h3><p data-i18n="card5p"><code>data-mcp="wikipedia,chess"</code> — live data and interactive widgets in the panel.</p></div>
       </div>
 
       <footer data-i18n="footer">
@@ -193,6 +206,8 @@
             sub: "No build step, no dependencies, no iframe — native bubbles and a composer, streaming straight from gumy.ai. The real widget is <b>floating in the bottom-right corner right now</b> — say hi, then hit the <b>⤢ expand</b> button to take it full screen.",
             hint: "<b>Live widget</b> — floating in the corner",
             integration: "Integration",
+            mcpTitle: "MCP tools — pre-selected at connection time",
+            mcpText: 'Give the character live tools with <code>data-mcp</code>: name the MCP servers your embed may use (comma-separated), and the character calls them mid-reply — Wikipedia facts, web search, even an interactive chess board rendered right inside the panel. The list is fixed by YOUR script tag (visitors can\'t change it) and is intersected with the character\'s own server binding on gumy.ai, so it can only narrow access, never widen it. <b>Try it live:</b> <a href="?character=garry-kasparov&amp;mcp=chess">Garry Kasparov with the chess board</a> — ask him to show a famous game.',
             whatYouGet: "What you get",
             card1h: "Floating launcher",
             card1p: "Sits in a corner, opens a chat panel over your page.",
@@ -202,6 +217,8 @@
             card3p: "Its styles can't leak into — or out of — your site.",
             card4h: "Runtime API",
             card4p: "<code>GumyChat.open()</code>, <code>.setCharacter()</code> &amp; more.",
+            card5h: "MCP tools",
+            card5p: '<code>data-mcp="wikipedia,chess"</code> — live data and interactive widgets in the panel.',
             footer: 'Source of truth: <a href="https://github.com/Garbuzenko/gumy-widget">Garbuzenko/gumy-widget</a>. The conversation runs on <a href="https://gumy.ai">gumy.ai</a> — this page owns only the overlay.'
           },
           ru: {
@@ -215,6 +232,8 @@
             sub: "Без сборки, без зависимостей, без iframe — нативные пузыри сообщений и композер, стриминг напрямую с gumy.ai. Настоящий виджет <b>прямо сейчас плавает в правом нижнем углу</b> — поздоровайтесь, затем нажмите <b>⤢</b>, чтобы развернуть его на весь экран.",
             hint: "<b>Живой виджет</b> — плавает в углу",
             integration: "Интеграция",
+            mcpTitle: "MCP-инструменты — выбираются при подключении",
+            mcpText: 'Дайте персонажу живые инструменты через <code>data-mcp</code>: перечислите MCP-серверы вашего эмбеда (через запятую) — и персонаж будет вызывать их прямо в ответе: факты из Википедии, веб-поиск и даже интерактивная шахматная доска внутри панели. Список фиксируется ВАШИМ тегом script (посетители его не меняют) и пересекается с привязкой серверов персонажа на gumy.ai — доступ можно только сузить, но не расширить. <b>Попробуйте вживую:</b> <a href="?character=garry-kasparov&amp;mcp=chess">Гарри Каспаров с шахматной доской</a> — попросите показать знаменитую партию.',
             whatYouGet: "Что вы получаете",
             card1h: "Плавающий лаунчер",
             card1p: "Живёт в углу и открывает панель чата поверх страницы.",
@@ -224,6 +243,8 @@
             card3p: "Его стили не проникают на ваш сайт — и наоборот.",
             card4h: "Runtime API",
             card4p: "<code>GumyChat.open()</code>, <code>.setCharacter()</code> и другое.",
+            card5h: "MCP-инструменты",
+            card5p: '<code>data-mcp="wikipedia,chess"</code> — живые данные и интерактивные виджеты в панели.',
             footer: 'Исходники: <a href="https://github.com/Garbuzenko/gumy-widget">Garbuzenko/gumy-widget</a>. Разговор идёт на <a href="https://gumy.ai">gumy.ai</a> — эта страница владеет только оверлеем.'
           }
         };
@@ -300,6 +321,9 @@
         position: q.get("position") || "right",
         origin: q.get("origin") || "https://gumy.ai",
         autoOpen: q.get("open") !== "false",
+        // MCP servers this showcase pre-selects (?mcp= overrides; the backend intersects with
+        // the character's own binding, so an unbound name is simply ignored).
+        mcp: q.get("mcp") || "wikipedia,search",
       };
     </script>
     <script src="https://gumy.ai/embed.js" async></script>

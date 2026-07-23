@@ -32,8 +32,28 @@ Set on the `<script>` tag as `data-*` attributes:
 | `data-auto-open` | `true` \| `false`     | `false`          | open the panel on page load               |
 | `data-origin`    | URL                   | `https://gumy.ai`| embed-API origin (for local/staging)      |
 | `data-mount`     | CSS selector          | — (floating)     | render the chat INLINE inside that element instead of as a floating launcher |
+| `data-mcp`       | comma-separated names | — (no tools)     | MCP servers this embed pre-selects for the character, e.g. `wikipedia,chess` |
 
 Find a character's slug on its gumy.ai page: `gumy.ai/en/c/<slug>`.
+
+### MCP tools (`data-mcp`)
+
+The same characters on gumy.ai can use **MCP servers** — live data + interactive widgets
+(Wikipedia lookups, a playable chess board, comic strips, …). The embed gets them too, but only
+the servers **you pre-select when connecting the script**:
+
+```html
+<script src="https://gumy.ai/embed.js"
+        data-character="garry-kasparov"
+        data-mcp="wikipedia,chess"
+        async></script>
+```
+
+With tools selected, the character can call them mid-reply, and a server that ships its own UI
+renders it **inside the panel** (a sandboxed iframe the widget sizes automatically). The selection
+is fixed at connection time — visitors can't change it — and the backend intersects it with the
+character's own server binding on gumy.ai, so you can only narrow, never widen, what a character
+may use. Which servers a character has: see the MCP section on its gumy.ai page.
 
 ## Runtime API
 
@@ -53,8 +73,10 @@ public **embed API** over HTTPS (CORS-open, so it works on any origin):
 
 - on open it `GET`s `…/api/embed/character?c=<slug>&lang=<lang>` to paint the header (name, avatar,
   accent, bio);
-- on each message it `POST`s `…/api/embed/chat` `{ c, messages, lang, theme }` and streams the
-  reply back as NDJSON, filling the assistant bubble live.
+- on each message it `POST`s `…/api/embed/chat` `{ c, messages, lang, theme, mcp?, widgetContext? }`
+  and streams the reply back as NDJSON, filling the assistant bubble live; with MCP servers
+  selected the stream may also carry `widget` events (an MCP Apps UI bundle, rendered as a
+  sandboxed iframe bubble with the standard postMessage handshake) and `photo` events.
 
 The character's persona is resolved and assembled **server-side** on gumy.ai from the slug — it
 never enters the browser. The conversation is anonymous (no login — subject to gumy.ai's per-IP

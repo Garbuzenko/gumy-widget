@@ -37,6 +37,8 @@
         theme: q.get("theme") || "dark",
         position: q.get("position") || "right",
         origin: q.get("origin") || "https://gumy.ai",
+        // e.g. ?character=garry-kasparov&mcp=chess to try MCP widgets locally.
+        mcp: q.get("mcp") || "",
       };
     </script>
     <script src="../embed.js" async></script>

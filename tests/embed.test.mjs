@@ -13,7 +13,8 @@ function loadEmbed() {
   new Function("module", "exports", src)(mod, mod.exports);
   return mod.exports;
 }
-const { normalizeConfig, buildCharUrl, buildChatUrl, VERSION } = loadEmbed();
+const { normalizeConfig, parseMcpList, buildCharUrl, buildChatUrl, buildWidgetUrl, VERSION } =
+  loadEmbed();
 
 test("normalizeConfig fills defaults", () => {
   const c = normalizeConfig({ character: "taylor-swift" });
@@ -79,4 +80,33 @@ test("both URLs respect a custom origin", () => {
 
 test("VERSION is exported", () => {
   assert.match(VERSION, /^\d+\.\d+\.\d+$/);
+});
+
+test("parseMcpList splits a data-mcp string, trims, lowercases and dedupes", () => {
+  assert.deepEqual(parseMcpList("wikipedia,chess"), ["wikipedia", "chess"]);
+  assert.deepEqual(parseMcpList(" Wikipedia ,  CHESS , wikipedia "), ["wikipedia", "chess"]);
+  assert.deepEqual(parseMcpList("wikipedia chess"), ["wikipedia", "chess"]); // space-separated too
+  assert.deepEqual(parseMcpList(""), []);
+  assert.deepEqual(parseMcpList(undefined), []);
+});
+
+test("parseMcpList accepts an array (GumyChatConfig.mcp)", () => {
+  assert.deepEqual(parseMcpList(["Chess", "", "chess"]), ["chess"]);
+});
+
+test("normalizeConfig carries the mcp selection (default: none)", () => {
+  assert.deepEqual(normalizeConfig({ character: "x" }).mcp, []);
+  assert.deepEqual(normalizeConfig({ character: "x", mcp: "wikipedia,chess" }).mcp, [
+    "wikipedia",
+    "chess",
+  ]);
+  assert.deepEqual(normalizeConfig({ character: "x", mcp: ["dns"] }).mcp, ["dns"]);
+});
+
+test("buildWidgetUrl targets the bundle route and url-encodes server + uri", () => {
+  const c = normalizeConfig({ character: "x" });
+  assert.equal(
+    buildWidgetUrl(c, "chess", "ui://chess/board-v1"),
+    "https://gumy.ai/api/mcp/widget?server=chess&uri=ui%3A%2F%2Fchess%2Fboard-v1",
+  );
 });

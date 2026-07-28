@@ -40,7 +40,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.1.1";
+  var VERSION = "2.1.2";
   var LANGS = { en: 1, ru: 1 };
   var THEMES = { dark: 1, light: 1 };
   var SIDES = { left: 1, right: 1 };
@@ -192,8 +192,11 @@
     "background:" + accent + ";box-shadow:0 8px 24px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;" +
     "justify-content:center;z-index:2147483000;transition:transform .18s ease,opacity .18s ease}" +
     ".launcher:hover{transform:scale(1.06)}" +
-    ".launcher.has-avatar{background-size:cover;background-position:center;border:2px solid #ffffffe0;" +
-    "box-shadow:0 8px 24px rgba(0,0,0,.32),0 0 0 3px " + accent + "55}" +
+    // Once the character's art has loaded the launcher stops being a button-looking circle: it IS
+    // the character — transparent, unfilled, unclipped, with only a soft shadow tracing the alpha.
+    ".launcher.has-avatar{width:96px;height:96px;border:0;border-radius:0;background:transparent;" +
+    "box-shadow:none;padding:0;filter:drop-shadow(0 6px 14px rgba(0,0,0,.3))}" +
+    ".launcher.has-avatar img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}" +
     ".launcher.hidden{opacity:0;pointer-events:none;transform:scale(.6)}" +
     panelBox +
     ".panel{background:" + C.bg + ";color:" + C.fg + ";overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.42);" +
@@ -487,7 +490,9 @@
   function applyAccent(hex) {
     if (!hex || !/^#[0-9a-fA-F]{3,8}$/.test(hex)) return;
     accent = hex;
-    if (launcher) launcher.style.background = hex;
+    // Never repaint the accent onto a launcher that already wears the character art — it must stay
+    // transparent (the art is the launcher).
+    if (launcher && !launcher.classList.contains("has-avatar")) launcher.style.background = hex;
     sendBtn.style.background = hex;
     // user-bubble background is set inline as bubbles are created (see addBubble usage below)
     var rules = root.querySelector("style");
@@ -495,23 +500,24 @@
     rules.textContent += ".row.user .bubble{background:" + hex + "!important}.send{background:" + hex + "!important}";
   }
 
-  // Put the character's face on the corner launcher (floating mode) — preload so it only swaps in
-  // once the image is ready, otherwise keep the default chat glyph.
+  // Put the character on the corner launcher (floating mode) — the whole transparent-PNG artwork,
+  // not a cropped circular avatar. Preload so it only swaps in once ready, otherwise keep the
+  // default accent bubble with the chat glyph.
   function paintLauncher(url) {
     if (!launcher || !url) return;
-    var img = new global.Image();
-    img.onload = function () {
+    var pre = new global.Image();
+    pre.onload = function () {
       launcher.innerHTML = "";
       launcher.classList.add("has-avatar");
-      // Set the background longhands INLINE: applyAccent() writes `launcher.style.background` (a
-      // shorthand that resets size/position to their defaults), and inline wins over the stylesheet
-      // — so cover/center must be inline too, applied here (after the async load) to stick.
-      launcher.style.backgroundImage = "url('" + url.replace(/'/g, "%27") + "')";
-      launcher.style.backgroundSize = "cover";
-      launcher.style.backgroundPosition = "center";
-      launcher.style.backgroundRepeat = "no-repeat";
+      // applyAccent() may have written an inline `background` shorthand — clear it so nothing sits
+      // behind the artwork (inline would otherwise beat the stylesheet's transparent rule).
+      launcher.style.background = "";
+      var el = doc.createElement("img");
+      el.setAttribute("alt", "");
+      el.src = url;
+      launcher.appendChild(el);
     };
-    img.src = url;
+    pre.src = url;
   }
 
   function fetchCharacter() {
@@ -708,7 +714,7 @@
     avatarEl.style.display = "none";
     if (launcher) {
       launcher.classList.remove("has-avatar");
-      launcher.style.backgroundImage = "";
+      launcher.style.background = accent;
       launcher.innerHTML = ICON_CHAT;
     }
     fetchCharacter();

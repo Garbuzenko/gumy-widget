@@ -13,8 +13,15 @@ function loadEmbed() {
   new Function("module", "exports", src)(mod, mod.exports);
   return mod.exports;
 }
-const { normalizeConfig, parseMcpList, buildCharUrl, buildChatUrl, buildWidgetUrl, VERSION } =
-  loadEmbed();
+const {
+  normalizeConfig,
+  parseMcpList,
+  buildCharUrl,
+  buildChatUrl,
+  buildWidgetUrl,
+  accentFg,
+  VERSION,
+} = loadEmbed();
 
 test("normalizeConfig fills defaults", () => {
   const c = normalizeConfig({ character: "taylor-swift" });
@@ -109,4 +116,22 @@ test("buildWidgetUrl targets the bundle route and url-encodes server + uri", () 
     buildWidgetUrl(c, "chess", "ui://chess/board-v1"),
     "https://gumy.ai/api/mcp/widget?server=chess&uri=ui%3A%2F%2Fchess%2Fboard-v1",
   );
+});
+
+test("accentFg picks dark ink on light accents and white on dark ones", () => {
+  // elena-kochkareva's accent — a white arrow on it was invisible (the bug this guards).
+  assert.equal(accentFg("#F0F0F0"), "#16161c");
+  assert.equal(accentFg("#ffffff"), "#16161c");
+  assert.equal(accentFg("#fff"), "#16161c");
+  assert.equal(accentFg("#6d5efc"), "#ffffff"); // DEFAULT_ACCENT
+  assert.equal(accentFg("#EC5FB0"), "#ffffff"); // taylor-swift
+  assert.equal(accentFg("#000"), "#ffffff");
+  assert.equal(accentFg("#F0F0F0ff"), "#16161c"); // 8-digit hex: alpha ignored
+});
+
+test("accentFg falls back to white for junk input", () => {
+  assert.equal(accentFg(""), "#ffffff");
+  assert.equal(accentFg("rebeccapurple"), "#ffffff");
+  assert.equal(accentFg(undefined), "#ffffff");
+  assert.equal(accentFg("#12345"), "#ffffff");
 });

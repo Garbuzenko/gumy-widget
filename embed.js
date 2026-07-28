@@ -40,7 +40,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.1.2";
+  var VERSION = "2.1.3";
   var LANGS = { en: 1, ru: 1 };
   var THEMES = { dark: 1, light: 1 };
   var SIDES = { left: 1, right: 1 };
@@ -105,7 +105,55 @@
     );
   }
 
+  // ── Accent contrast ────────────────────────────────────────────────────────────────
+  // Mascot accents span the whole range, including near-white ones (elena-kochkareva is #F0F0F0),
+  // so nothing painted with the accent may hardcode a white foreground: the send arrow and the
+  // user-bubble text would simply disappear. Pick whichever ink contrasts better (WCAG 2.1).
+  var INK = "#16161c";
+
+  function parseAccent(hex) {
+    if (typeof hex !== "string") return null;
+    var h = hex.trim().replace(/^#/, "");
+    if (h.length === 3 || h.length === 4) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    else if (h.length === 8) h = h.slice(0, 6);
+    if (h.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+
+  function luminance(rgb) {
+    var lin = [];
+    for (var i = 0; i < 3; i++) {
+      var v = rgb[i] / 255;
+      lin.push(v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    }
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  }
+
+  function contrast(a, b) {
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+
+  // Foreground (icon / text colour) to use on top of `hex`. White stays the default look — it only
+  // flips to dark ink when white would drop below the 3:1 WCAG non-text contrast floor, i.e. when
+  // the accent is genuinely too pale to carry it.
+  function accentFg(hex) {
+    var rgb = parseAccent(hex);
+    if (!rgb) return "#ffffff";
+    return contrast(luminance(rgb), 1) >= 3 ? "#ffffff" : INK;
+  }
+
+  // The accent-painted surfaces, as CSS. `bang` is "" for the base stylesheet and "!important" for
+  // the override appended once the character's real accent arrives. A light accent also gets a
+  // hairline edge so the bubble/button keeps its shape against a light panel.
+  function accentCss(hex, bang) {
+    var fg = accentFg(hex);
+    var edge = fg === "#ffffff" ? "" : "box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)" + bang + ";";
+    var paint = "background:" + hex + bang + ";color:" + fg + bang + ";" + edge;
+    return ".row.user .bubble{" + paint + "}.send{" + paint + "}";
+  }
+
   var api = {
+    accentFg: accentFg,
     normalizeConfig: normalizeConfig,
     parseMcpList: parseMcpList,
     buildCharUrl: buildCharUrl,
@@ -157,7 +205,7 @@
   var t = function (map) { return map[cfg.lang] || map.en; };
 
   var ICON_CHAT =
-    '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+    '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
   var ICON_CLOSE =
     '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
   var ICON_EXPAND =
@@ -165,7 +213,7 @@
   var ICON_SHRINK =
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>';
   var ICON_SEND =
-    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 
   var inline = !!cfg.mount;
   var side = cfg.position === "left" ? "left" : "right";
@@ -189,7 +237,8 @@
     ":host{all:initial}" +
     "*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}" +
     ".launcher{position:fixed;bottom:20px;" + side + ":20px;width:58px;height:58px;border:0;border-radius:50%;" +
-    "background:" + accent + ";box-shadow:0 8px 24px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;" +
+    "background:" + accent + ";color:" + accentFg(accent) + ";" +
+    "box-shadow:0 8px 24px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;" +
     "justify-content:center;z-index:2147483000;transition:transform .18s ease,opacity .18s ease}" +
     ".launcher:hover{transform:scale(1.06)}" +
     // Once the character's art has loaded the launcher stops being a button-looking circle: it IS
@@ -215,7 +264,7 @@
     ".row.user{justify-content:flex-end}" +
     ".bubble{max-width:82%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}" +
     ".row.bot .bubble{background:" + C.bot + ";color:" + C.botFg + ";border-bottom-left-radius:5px}" +
-    ".row.user .bubble{background:" + accent + ";color:#fff;border-bottom-right-radius:5px}" +
+    ".row.user .bubble{border-bottom-right-radius:5px}" +
     ".bubble.err{background:transparent;color:#e5484d;border:1px solid #e5484d55;font-size:13px}" +
     ".row.widget{width:100%}" +
     ".wframe{display:block;width:100%;border:0;border-radius:14px;background:transparent;transition:height .2s ease}" +
@@ -230,9 +279,11 @@
     ".composer textarea{flex:1;resize:none;border:0;outline:0;background:" + C.field + ";color:" + C.fg + ";" +
     "border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.4;max-height:120px;min-height:40px}" +
     ".composer textarea::placeholder{color:" + C.muted + "}" +
-    ".send{flex:0 0 auto;width:40px;height:40px;border:0;border-radius:12px;background:" + accent + ";cursor:pointer;" +
+    ".send{flex:0 0 auto;width:40px;height:40px;border:0;border-radius:12px;cursor:pointer;" +
     "display:flex;align-items:center;justify-content:center;transition:opacity .15s ease}" +
     ".send:disabled{opacity:.45;cursor:default}" +
+    // Accent-painted surfaces last, so their fg/edge win over the base rules above.
+    accentCss(accent, "") +
     "@media (prefers-reduced-motion:reduce){.launcher,.panel,.dots i{transition:none;animation:none}}";
 
   var host = doc.createElement("div");
@@ -492,12 +543,13 @@
     accent = hex;
     // Never repaint the accent onto a launcher that already wears the character art — it must stay
     // transparent (the art is the launcher).
-    if (launcher && !launcher.classList.contains("has-avatar")) launcher.style.background = hex;
-    sendBtn.style.background = hex;
-    // user-bubble background is set inline as bubbles are created (see addBubble usage below)
+    if (launcher && !launcher.classList.contains("has-avatar")) {
+      launcher.style.background = hex;
+      launcher.style.color = accentFg(hex);
+    }
     var rules = root.querySelector("style");
     // Cheap targeted override appended once — avoids reflowing the whole stylesheet string.
-    rules.textContent += ".row.user .bubble{background:" + hex + "!important}.send{background:" + hex + "!important}";
+    rules.textContent += accentCss(hex, "!important");
   }
 
   // Put the character on the corner launcher (floating mode) — the whole transparent-PNG artwork,
@@ -715,6 +767,7 @@
     if (launcher) {
       launcher.classList.remove("has-avatar");
       launcher.style.background = accent;
+      launcher.style.color = accentFg(accent);
       launcher.innerHTML = ICON_CHAT;
     }
     fetchCharacter();
